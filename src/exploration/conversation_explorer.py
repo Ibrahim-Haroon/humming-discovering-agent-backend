@@ -34,6 +34,11 @@ class ConversationExplorer:
             max_depth=max_depth
         )
 
+    @property
+    def progress(self) -> ProgressTracker:
+        """Returns the progress tracker"""
+        return self.__progress
+
     def explore(self) -> ConversationGraph:
         """
         Explores conversation paths in parallel using worker pool.
