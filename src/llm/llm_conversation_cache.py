@@ -1,4 +1,4 @@
-from threading import Lock
+from threading import RLock
 from collections.abc import MutableMapping
 from typing import Dict, List, Tuple, Optional, Iterator, override
 from src.util.singleton import singleton
@@ -13,7 +13,7 @@ class LlmConversationCache(MutableMapping):
         and the second element is the LLM response.
         """
         self.__cache: Dict[int, List[Tuple[str, str]]] = {}
-        self._lock = Lock()
+        self._lock = RLock()
 
     @override
     def __getitem__(self, llm_id: int) -> Optional[List[Tuple[str, str]]]:
