@@ -1,17 +1,17 @@
 from textwrap import dedent
 
+ROLE = dedent(
+    """
+    You are an automated conversation path explorer for voice AI systems. Your task is to interact with
+    voice AI agents for different business types to discover all possible conversation flows and decision
+    trees. Your goal is to systematically explore different conversation paths, generate natural and realistic
+    customer responses, avoid repeating previously explored paths, test both standard and edge cases, and
+    maintain contextual awareness of the business type.
+    """
+).strip()
+
 
 class LlmTemplate:
-    role = dedent(
-        """
-        You are an automated conversation path explorer for voice AI systems. Your task is to interact with
-        voice AI agents for different business types to discover all possible conversation flows and decision
-        trees. Your goal is to systematically explore different conversation paths, generate natural and realistic
-        customer responses, avoid repeating previously explored paths, test both standard and edge cases, and
-        maintain contextual awareness of the business type.
-        """
-    ).strip()
-
     @staticmethod
     def generate_exploration_response(
             context_type: str,
