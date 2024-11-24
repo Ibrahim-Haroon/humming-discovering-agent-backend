@@ -4,8 +4,10 @@ from typing import Dict, Set, Optional, List, Iterator
 from .conversation_node import ConversationNode
 from .conversation_edge import ConversationEdge
 from ..enum.conversation_state import ConversationState
+from src.util.singleton import singleton
 
 
+@singleton
 class ConversationGraph:
     """
     Represents the entire conversation tree discovered during exploration.
