@@ -19,6 +19,15 @@ class LlmTemplate:
             conversation_history: list[tuple[str, str]],
             explored_paths: set[str]
     ) -> str:
+        """
+        Generates a template response for the LLM to follow when exploring conversation paths. Expected total tokens
+        per request is 600-1200.
+        :param context_type: The type of business context for the conversation, e.g. "restaurant booking"
+        :param current_agent_message: The current message from the voice AI agent, e.g. "When would you like to book?"
+        :param conversation_history: A list of tuples representing the conversation history so far
+        :param explored_paths: A set of paths that have already been explored, e.g. {"booked", "cancelled"}
+        :return: A template prompt for the LLM to generate a response
+        """
         return dedent(
             f"""
             Here is the context type for this interaction:
@@ -54,53 +63,46 @@ class LlmTemplate:
                d. Balances between normal and edge case scenarios
             
             EXAMPLES OF GOOD RESPONSES:
-            For a car dealership context:
-            AI: "Are you interested in new or used vehicles?"
-            Good responses:
-            - "I'm looking for a new car" (explores new vehicle path)
-            - "Actually, I'm interested in both" (tests edge case)
-            - "Used cars please" (explores used vehicle path)
-            - "I'm just browsing right now" (tests non-committal response)
-            - "Agent please" (tests agent request (human in the loop))
-    
-            For a plumbing service context:
-            AI: "Is this an emergency situation?"
-            Good responses:
-            - "Yes, my basement is flooding" (tests urgent path)
-            - "No, just need routine maintenance" (explores standard service path)
-            - "I'm not sure, there's water leaking slowly" (tests edge case)
-            - "Can you send someone now?" (tests immediate service request)
-            - "Agent please" (tests agent request (human in the loop))
-        
-            Guidelines for generating responses:
-            - Ensure your response is relevant to the context_type and current_agent_message.
-            - Make your response sound natural and realistic, as if coming from an actual customer.
-            - Avoid using responses similar to those in the explored_paths.
-            - Occasionally introduce edge cases or unexpected responses to test the AI system's flexibility.
-            - Keep your response concise and to the point, typically one or two sentences.
-            
-            Additional guideline for terminal nodes/endings:
-            - If you detect the conversation has reached a likely endpoint (appointment confirmed, service scheduled,
-              problem resolved), respond with:
-                <response>
-                [TERMINAL] Your final response here
-                </response>
-                <reasoning>
-                Explain why you believe this is a terminal state and why your response is appropriate as an ending
-                </reasoning>
-            
-            Examples of terminal states:
-            - "Your appointment is confirmed for tomorrow at 2 PM" -> [TERMINAL] "Thank you, I'll see you then"
-            - "A plumber will arrive within the next hour" -> [TERMINAL] "Perfect, I'll be waiting"
-            - "Is there anything else I can help you with?" -> [TERMINAL] "No, that's all I needed, thanks"
+            Examples of properly formatted responses:
 
-            Otherwise, provide your response in the following format:
-            <response>
-            Your generated customer response here
-            </response>
-            <reasoning>
-            Brief explanation of why you chose this response and how it contributes to exploring the conversation paths
-            </reasoning>
+            For a successful booking:
+            ```json
+            {{
+                "response": "Perfect, Thursday at 2pm works for me. Thank you for your help!",
+                "state": "TERMINAL_SUCCESS",
+                "confidence": 0.95,
+                "reasoning": "Appointment was successfully scheduled and confirmed, completing the primary task"
+            }}
+            ```
+
+            For needing human help:
+            ```json
+            {{
+                "response": "I'd prefer to speak with a human agent about this complex repair",
+                "state": "TERMINAL_TRANSFER",
+                "confidence": 0.90,
+                "reasoning": "Customer explicitly requested human assistance for a complex issue"
+            }}
+            ```
+
+            For continuing conversation:
+            ```json
+            {{
+                "response": "I need service for my air conditioning unit",
+                "state": "IN_PROGRESS",
+                "confidence": 0.85,
+                "reasoning": "Providing initial service request information to start the booking process"
+            }}
+
+            Your response MUST be in the following JSON format:
+            ```json
+            {{
+                "response": "your actual response to the agent",
+                "state": "INITIAL|IN_PROGRESS|TERMINAL_SUCCESS|TERMINAL_TRANSFER|TERMINAL_FALLBACK|ERROR",
+                "confidence": 0.0 to 1.0,
+                "reasoning": "explanation of your response and state choice"
+            }}
+            ```
             
             Remember, your goal is to help map out the complete decision tree of the voice AI system while maintaining
             realistic customer dialogue patterns.
