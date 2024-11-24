@@ -1,6 +1,7 @@
+import os
 import uuid
+from typing import Optional
 from datetime import datetime
-
 from src.llm.llm_response_parser import LlmResponseParser
 from src.llm.llm_template import ROLE
 from src.llm.llm_conversation_cache import LlmConversationCache
@@ -12,7 +13,7 @@ from src.exploration.worker.worker_context import WorkerContext
 from src.llm.llm_prompt_contextualizer import LlmPromptContextualizer
 from src.speech.service.speech_transcribe_service import SpeechTranscribeService
 from src.llm.service.llm_response_service import LlmResponseService
-from src.rest.api.voice_api_client import VoiceApiClient
+from src.rest.api.voice_api_client import VoiceApiClient, VoiceApiError
 
 
 class ConversationWorker:
@@ -42,68 +43,154 @@ class ConversationWorker:
 
         :param context: WorkerContext containing necessary information
         :returns Tuple of (new_node, edge_taken)
+        :returns: Tuple of (new_node, edge_taken)
+        :raises VoiceApiError: If voice API operations fail
+        :raises TranscriptionError: If speech-to-text fails
+        :raises LLMError: If LLM operations fail
         """
-        call_id = self.__voice_client.start_call(context.phone_number)
-        recording = self.__voice_client.get_recording(call_id)
-        agent_message = self.__transcribe_service.transcribe(recording)
+        recording_path: Optional[str] = None
 
-        history = self.__conversation_history[self.__id] or []
+        try:
+            system_prompt = self.__generate_system_prompt(context)
+            call_response = self.__voice_client.start_call(
+                phone_number=context.phone_number,
+                prompt=system_prompt
+            )
 
-        llm_prompt = LlmPromptContextualizer.generate(
-            context_type=context.business_type,
-            current_agent_message=agent_message,
-            conversation_history=history,
-            explored_paths=context.current_node.explored_responses
-        )
-        llm_response = self.__llm_service.response(ROLE, llm_prompt)
-        llm_response = LlmResponseParser.parse(llm_response)
+            recording_path = self.__voice_client.get_recording(
+                call_id=call_response.id,
+                max_retries=3,
+                retry_delay=45  # Wait 45 seconds between retries
+            )
 
-        # Update conversation history
-        self.__conversation_history[self.__id] = ("AGENT: " + agent_message, "USER: " + llm_response.response)
+            agent_message = self.__transcribe_service.transcribe(recording_path)
 
-        # Create new node
-        new_node = ConversationNode(
-            agent_message=agent_message,
-            state=llm_response.state,
-            parent_id=context.current_node.id,
+            if not agent_message.strip():
+                raise ValueError("Received empty transcription from agent")
+
+            history = self.__conversation_history[self.__id] or []
+
+            llm_prompt = LlmPromptContextualizer.generate(
+                context_type=context.business_type,
+                current_agent_message=agent_message,
+                conversation_history=history,
+                explored_paths=context.current_node.explored_responses
+            )
+            llm_raw_response = self.__llm_service.response(ROLE, llm_prompt)
+            llm_response = LlmResponseParser.parse(llm_raw_response)
+
+            # Update conversation history
+            self.__conversation_history[self.__id] = (
+                f"AGENT: {agent_message}",
+                f"USER: {llm_response.response}"
+            )
+
+            # Create new node
+            new_node = ConversationNode(
+                agent_message=agent_message,
+                state=llm_response.state,
+                parent_id=context.current_node.id,
+                metadata={
+                    'confidence': llm_response.confidence,
+                    'reasoning': llm_response.reasoning,
+                    'call_id': call_response.id,
+                    'business_type': context.business_type,
+                    'timestamp': datetime.now().isoformat()
+                }
+            )
+
+            # Create edge representing this transition
+            edge = ConversationEdge(
+                source_node_id=context.current_node.id,
+                target_node_id=new_node.id,
+                response=llm_response.response,
+                timestamp=datetime.now(),
+                metadata={
+                    'confidence': llm_response.confidence,
+                    'call_id': call_response.id
+                }
+            )
+
+            # Update graph
+            self.__graph.add_node(new_node)
+            self.__graph.add_edge(edge)
+
+            return new_node, edge
+        except VoiceApiError as e:
+            # logging.error(f"Voice API error during exploration: {str(e)}")
+            # Create error node to mark this path
+            return self.__create_error_node(
+                context.current_node.id,
+                f"Voice API error: {str(e)}",
+                e
+            )
+
+        except Exception as e:
+            # logging.error(f"Exploration error: {str(e)}")
+            return self.__create_error_node(
+                context.current_node.id,
+                f"Exploration error: {str(e)}",
+                e
+            )
+        finally:
+            # Cleanup temporary recording file
+            if recording_path and os.path.exists(recording_path):
+                try:
+                    os.remove(recording_path)
+                except Exception as e:
+                    # logging.error(f"Failed to clean up recording file: {str(e)}")
+                    pass
+
+    def __create_error_node(
+            self,
+            parent_id: str,
+            error_message: str,
+            exception: Exception
+    ) -> tuple[ConversationNode, ConversationEdge]:
+        """Creates an error node and edge for handling exploration failures"""
+        error_node = ConversationNode(
+            agent_message="Error during exploration",
+            state=ConversationState.ERROR,
+            parent_id=parent_id,
             metadata={
-                'confidence': llm_response.confidence,
-                'reasoning': llm_response.reasoning
+                'error_message': error_message,
+                'error_type': exception.__class__.__name__,
+                'timestamp': datetime.now().isoformat()
             }
         )
 
-        # Create edge representing this transition
-        edge = ConversationEdge(
-            source_node_id=context.current_node.id,
-            target_node_id=new_node.id,
-            response=llm_response.response,
-            timestamp=datetime.now()
+        error_edge = ConversationEdge(
+            source_node_id=parent_id,
+            target_node_id=error_node.id,
+            response="Error occurred",
+            timestamp=datetime.now(),
+            metadata={
+                'error_message': error_message,
+                'error_type': exception.__class__.__name__
+            }
         )
 
-        # Update graph
-        self.__graph.add_node(new_node)
-        self.__graph.add_edge(edge)
+        self.__graph.add_node(error_node)
+        self.__graph.add_edge(error_edge)
 
-        return new_node, edge
+        return error_node, error_edge
+
+    @staticmethod
+    def __generate_system_prompt(context: WorkerContext) -> str:
+        """Generates appropriate system prompt based on context"""
+        # If we have a parent edge, we want to include the previous response
+        if context.parent_edge:
+            return (
+                f"Previous customer response: {context.parent_edge.response}\n"
+                f"Business type: {context.business_type}"
+            )
+
+        # For root node, just provide business context
+        return f"Business type: {context.business_type}"
+
 
     def cleanup(self) -> None:
         """Deletes conversation history when done with a path"""
         # Clear conversation history when done with this path
         if self.__id in self.__conversation_history:
             del self.__conversation_history[self.__id]
-
-    @staticmethod
-    def __determine_state(response: str) -> ConversationState:
-        """
-        Determines the conversation state based on the response
-
-        :param response: LLM generated response
-        :returns Appropriate ConversationState
-        """
-        # Check for terminal indicators
-        if "[TERMINAL]" in response:
-            if "agent" in response.lower() or "representative" in response.lower():
-                return ConversationState.TERMINAL_TRANSFER
-            return ConversationState.TERMINAL_SUCCESS
-
-        return ConversationState.IN_PROGRESS
