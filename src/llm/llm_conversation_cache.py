@@ -8,12 +8,13 @@ from src.util.singleton import singleton
 
 @singleton
 class LlmConversationCache(MutableMapping):
+    """
+    A thread-safe cache for storing conversations. Key is a string representing the business context. The value is a
+    list of tuples, where the first element is the prompt made by the LLM, and the second element is the Agent and LLM
+    conversation's transcription.
+    """
+
     def __init__(self):
-        """
-        A thread-safe cache for storing conversations. Key is a string representing the business context.
-        The value is a list of tuples, where the first element is the prompt made by the LLM, and the second element
-        is the Agent and LLM conversation's transcription.
-        """
         self.__cache: Dict[str, List[Tuple[str, str]]] = {}
         self._lock = RLock()
 

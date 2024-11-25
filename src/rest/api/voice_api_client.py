@@ -22,7 +22,11 @@ class VoiceApiError(Exception):
 
 
 class VoiceApiClient:
-    """Client for interacting with the Hamming Voice API"""
+    """
+    Client for interacting with Hamming Voice API, handling calls and recordings.
+
+    :raises VoiceApiError: For API errors with optional status code
+    """
     
     def __init__(self):
         self.__base_url = "https://app.hamming.ai/api".rstrip('/')
@@ -44,11 +48,14 @@ class VoiceApiClient:
         prompt: str
     ) -> HammingCallResponseDTO:
         """
-        Initiates a new phone call
+        Initiate new phone call with voice agent.
 
         :param phone_number: Target phone number
-        :param prompt: System prompt for the agent
-        :return: Call response containing call ID
+        :type phone_number: str
+        :param prompt: System prompt for agent
+        :type prompt: str
+        :returns: Call response with ID
+        :rtype: HammingCallResponseDTO
         :raises VoiceApiError: If API call fails
         """
         try:
@@ -89,12 +96,15 @@ class VoiceApiClient:
         timeout: int = 300
     ) -> str:
         """
-        Gets the recording for a completed call
+        Get recording for completed call.
 
-        :param call_id: ID of the call
-        :param timeout: Maximum time to wait for recording in seconds
-        :return: Path to downloaded recording
-        :raises VoiceApiError: If recording retrieval fails
+        :param call_id: ID of completed call
+        :type call_id: str
+        :param timeout: Max seconds to wait for recording
+        :type timeout: int
+        :returns: Path to downloaded recording file
+        :rtype: str
+        :raises VoiceApiError: If recording retrieval fails or times out
         """
         try:
             # Wait for webhook callback

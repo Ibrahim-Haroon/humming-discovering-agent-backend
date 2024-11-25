@@ -12,7 +12,18 @@ from ...core.model.conversation_graph import ConversationGraph
 
 
 class WorkerPool:
-    """Thread-safe pool of conversation workers for parallel exploration"""
+    """
+    Thread-safe pool managing parallel conversation workers and task scheduling.
+
+    :param workers: List of workers to manage
+    :type workers: list[ConversationWorker]
+    :param max_workers: Maximum concurrent workers
+    :type max_workers: int
+    :param max_depth: Maximum exploration depth
+    :type max_depth: int
+    :param task_timeout: Maximum time in seconds for task completion
+    :type task_timeout: int
+    """
     logger = logging.getLogger(__name__)
 
     def __init__(
@@ -58,11 +69,13 @@ class WorkerPool:
         return self.__task_queue
 
     def submit_task(self, task: ExplorationTask) -> None:
-        """
-        Submit a new exploration task to the pool
+        """"
+       Submit new exploration task to worker pool.
 
-        :param task: Task to submit
-        """
+       :param task: Task to be executed
+       :type task: ExplorationTask
+       :raises RuntimeError: If pool is shutting down
+       """
         if self.__shutdown_event.is_set():
             raise RuntimeError("Worker pool is shutting down")
 
@@ -151,18 +164,18 @@ class WorkerPool:
         new_node, edge = worker.explore_path(task.context)
         task.node.add_response(edge.response)
 
-        print(f"\nNode {new_node.id} reached state: {new_node.state}")
+        WorkerPool.logger.debug(f"\nNode {new_node.id} reached state: {new_node.state}")
 
         if new_node.is_terminal():
-            print(f"Terminal state reached, attempting backtrack from node {task.context.current_node.id}")
+            WorkerPool.logger.debug(f"Terminal state reached, attempting backtrack from node {task.context.current_node.id}")
             parent_node = task.context.current_node
             while parent_node and not parent_node.is_terminal():
-                print(f"Checking parent node {parent_node.id} for unexplored paths")
+                WorkerPool.logger.debug(f"Checking parent node {parent_node.id} for unexplored paths")
                 prompt = worker.generate_new_prompt(parent_node)
-                print(f"Generated prompt: {prompt}")
+                WorkerPool.logger.debug(f"Generated prompt: {prompt}")
 
                 if prompt and not parent_node.has_similar_response(prompt):
-                    print(f"Found new path to explore from node {parent_node.id}")
+                    WorkerPool.logger.debug(f"Found new path to explore from node {parent_node.id}")
                     new_context = WorkerContext(
                         phone_number=task.context.phone_number,
                         business_type=task.context.business_type,
@@ -177,11 +190,11 @@ class WorkerPool:
                     self.submit_task(new_task)
                     break
                 else:
-                    print(f"No new paths found from node {parent_node.id}")
+                    WorkerPool.logger.debug(f"No new paths found from node {parent_node.id}")
                 parent_node = ConversationGraph().get_node(parent_node.parent_id)
 
             if parent_node is None:
-                print("Exploration complete - all paths from root explored")
+                WorkerPool.logger.debug("Exploration complete - all paths from root explored")
 
         elif task.depth < self.__max_depth and not self.__shutdown_event.is_set():
             new_context = WorkerContext(
@@ -197,7 +210,7 @@ class WorkerPool:
             )
             self.submit_task(new_task)
         else:
-            print(f"Max depth {self.__max_depth} reached")
+            WorkerPool.logger.debug(f"Max depth {self.__max_depth} reached")
 
     def __task_completed(
             self,
@@ -266,10 +279,12 @@ class WorkerPool:
             timeout: Optional[int] = None
     ) -> None:
         """
-        Shuts down the worker pool
+        Shutdown worker pool and cleanup resources.
 
-        :param wait_for_completion: Whether to wait for completion
-        :param timeout: Optional timeout for shutdown
+        :param wait_for_completion: Whether to wait for active tasks
+        :type wait_for_completion: bool
+        :param timeout: Maximum seconds to wait
+        :type timeout: Optional[int]
         """
         if not self.__task_queue.empty() or self.get_active_task_count() > 0:
             return
@@ -302,16 +317,18 @@ class WorkerPool:
 
     def get_active_task_count(self) -> int:
         """
-        Get count of currently active tasks
+        Get number of currently executing tasks.
 
-        :return: Number of active tasks
+        :returns: Count of active tasks
+        :rtype: int
         """
         return len(self.__active_tasks)
 
     def is_idle(self) -> bool:
         """
-        Check if pool has no active tasks
+        Check if pool has no active tasks or queued work.
 
-        :return: True if no active tasks
+        :returns: True if no active or queued tasks
+        :rtype: bool
         """
         return len(self.__active_tasks) == 0 and self.__task_queue.empty()

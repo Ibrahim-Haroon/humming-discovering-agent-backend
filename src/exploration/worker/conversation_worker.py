@@ -1,5 +1,4 @@
 import os
-import re
 from typing import Optional
 from datetime import datetime
 from src.llm.llm_response_parser import LlmResponseParser
@@ -17,8 +16,20 @@ from src.speech.service.speech_transcribe_service import SpeechTranscribeService
 
 
 class ConversationWorker:
-    """Handles individual conversation paths during exploration"""
+    """
+   Worker that explores individual conversation paths by interacting with voice AI agents.
+   Handles the full lifecycle of conversations including prompt generation, voice calls,
+   transcription, analysis, and graph updates.
 
+   :param voice_client: Client for making voice API calls
+   :type voice_client: VoiceApiClient
+   :param transcribe_service: Service for transcribing audio
+   :type transcribe_service: SpeechTranscribeService
+   :param llm_service: Service for generating LLM responses
+   :type llm_service: LlmResponseService
+   :param graph: Shared conversation graph to update
+   :type graph: ConversationGraph
+   """
     def __init__(
             self,
             voice_client: VoiceApiClient,
@@ -34,18 +45,20 @@ class ConversationWorker:
 
     def explore_path(self, context: WorkerContext) -> tuple[ConversationNode, ConversationEdge]:
         """
-        Explores a conversation path by:
-        1. Generating a customer prompt
-        2. Making a call to get full conversation
-        3. Analyzing transcript to determine state and next steps
-        4. Creating appropriate nodes and edges in the conversation graph
+        Explores a single conversation path by:
+        1. Generating customer prompt
+        2. Making voice API call
+        3. Transcribing response
+        4. Analyzing conversation state
+        5. Updating graph with results
 
-        :param context: WorkerContext containing necessary information
-        :returns Tuple of (new_node, edge_taken)
-        :returns: Tuple of (new_node, edge_taken)
+        :param context: Context containing required info for exploration
+        :type context: WorkerContext
+        :returns: Tuple of (new node created, edge taken to reach it)
+        :rtype: tuple[ConversationNode, ConversationEdge]
         :raises VoiceApiError: If voice API operations fail
-        """
         recording_path: Optional[str] = None
+        """
 
         try:
             customer_prompt = context.metadata.get('prompt') or self.generate_new_prompt(context.current_node)
@@ -179,7 +192,14 @@ class ConversationWorker:
         return error_node, error_edge
 
     def generate_new_prompt(self, node: ConversationNode) -> Optional[str]:
-        """Generate unique conversation prompt for unexplored paths"""
+        """
+        Generate unique conversation prompt for exploring new paths from node.
+
+        :param node: Node to generate prompt from
+        :type node: ConversationNode
+        :returns: Generated prompt if possible, None if no new paths
+        :rtype: Optional[str]
+       """
         prompt = LlmPromptContextualizer.generate_customer_prompt(
             context_type=node.metadata.get('business_type'),
             conversation_history=self.__conversation_history[node.metadata.get('business_type')] or [],
@@ -194,7 +214,12 @@ class ConversationWorker:
         return LlmResponseParser.parse_customer_prompt(llm_response)
 
     def cleanup(self, context: WorkerContext) -> None:
-        """Deletes conversation history when done with a path"""
+        """
+        Cleanup worker state after exploring a path.
+
+        :param context: Context of completed exploration
+        :type context: WorkerContext
+       """
         # Clear conversation history when done with this path
         if context.business_type in self.__conversation_history:
             del self.__conversation_history[context.business_type]

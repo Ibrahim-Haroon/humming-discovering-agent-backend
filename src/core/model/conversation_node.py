@@ -9,7 +9,23 @@ from ..service.response_similarity import ResponseSimilarity
 @dataclass
 class ConversationNode:
     """
-    Represents a point in the conversation where the voice AI agent has spoken and is waiting for user input.
+    Represents a node in the conversation graph where a voice AI agent has spoken and awaits user input.
+    Each node maintains its state, transcript, and keeps track of explored responses.
+
+    :param conversation_transcription: Complete transcript of the conversation at this node
+    :type conversation_transcription: str
+    :param state: Current state of the conversation (e.g., INITIAL, IN_PROGRESS)
+    :type state: ConversationState
+    :param parent_id: Identifier of the parent node, None for root node
+    :type parent_id: Optional[str]
+    :param explored_responses: Set of customer prompts already tried at this node
+    :type explored_responses: Set[str]
+    :param metadata: Additional contextual data about the node
+    :type metadata: Dict[str, Any]
+    :param created_at: Timestamp when the node was created
+    :type created_at: datetime
+
+    :raises ValueError: If attempting to create a root node (parent_id=None) with non-INITIAL state
     """
     conversation_transcription: str  # The full conversation transcript
     state: ConversationState  # Current state of this node
@@ -33,19 +49,25 @@ class ConversationNode:
 
     @property
     def id(self) -> str:
-        """Unique identifier for this node"""
+        """
+        Get the unique identifier for this node.
+
+        :returns: Deterministic hash based on conversation transcript and parent ID
+        :rtype: str
+        """
         return self._id
 
     def add_response(self, prompt: str) -> bool:
         """
-        Add a customer prompt that's been tried for this conversation path.
+        Record a customer prompt that's been attempted at this node.
 
-        :param prompt: The user response to add
-        :returns False if a similar response has already been explored
+        :param prompt: The customer response to record
+        :type prompt: str
+        :returns: False if a similar response has already been explored, True if new
+        :rtype: bool
+
+        :note: Uses fuzzy matching to determine similarity between responses
         """
-        # if self.state.name.startswith('TERMINAL'):
-        #     raise ValueError("Cannot add prompts to terminal nodes")
-
         if self.__response_similarity.find_similar(prompt, self.explored_responses):
             return False
 
@@ -53,14 +75,23 @@ class ConversationNode:
         return True
 
     def is_terminal(self) -> bool:
-        """Check if this node represents an end state"""
+        """
+        Check if this node represents an end state in the conversation.
+
+        :returns: True if node state starts with 'TERMINAL', False otherwise
+        :rtype: bool
+        """
         return self.state.name.startswith('TERMINAL')
 
     def has_similar_response(self, response: str) -> bool:
         """
-        Check if a similar response has already been explored
+        Check if a semantically similar response has already been explored.
 
-        :param response: Response to check
-        :returns True if a similar response exists
+        :param response: Response to check for similarity
+        :type response: str
+        :returns: True if a similar response exists in explored_responses
+        :rtype: bool
+
+        :note: Uses same similarity matching algorithm as add_response()
         """
         return self.__response_similarity.find_similar(response, self.explored_responses) is not None

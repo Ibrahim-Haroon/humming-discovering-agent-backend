@@ -34,6 +34,9 @@ ANALYSIS_ROLE = dedent(
 
 
 class LlmTemplate:
+    """
+    Templates for the LLM to generate prompts and responses for different roles in the conversation
+    """
     @staticmethod
     def generate_analysis_prompt(
         context_type: str,
@@ -218,15 +221,6 @@ class LlmTemplate:
             conversation_history: list[tuple[str, str]],
             explored_paths: set[str]
     ) -> str:
-        """
-        Generates a template response for the LLM to follow when exploring conversation paths. Expected total tokens
-        per request is 600-1200.
-        :param context_type: The type of business context for the conversation, e.g. "restaurant booking"
-        :param current_agent_message: The current message from the voice AI agent, e.g. "When would you like to book?"
-        :param conversation_history: A list of tuples representing the conversation history so far
-        :param explored_paths: A set of paths that have already been explored, e.g. {"booked", "cancelled"}
-        :return: A template prompt for the LLM to generate a response
-        """
         return dedent(
             f"""
             Here is the context type for this interaction:

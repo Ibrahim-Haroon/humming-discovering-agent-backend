@@ -13,10 +13,24 @@ class ParsedLlmResponse:
 
 
 class LlmResponseParser:
-    """Handles parsing and validation of LLM responses"""
+    """
+    Handles parsing and validation of LLM responses.
+
+    This class is responsible for extracting and validating the necessary information from the raw LLM response. It
+    ensures that the response contains the required fields and that the values are within the expected ranges.
+
+    The parsed response is returned as a `ParsedLlmResponse` dataclass, which includes the response text, conversation
+    state, confidence level, and reasoning.
+    """
 
     @staticmethod
     def parse_customer_prompt(customer_prompt) -> str:
+        """
+        Extracts the customer prompt from the raw LLM response.
+        :param customer_prompt: Raw response from LLM
+        :return: Extracted customer prompt
+        :rtype: str
+        """
         match = re.search(r'<prompt>(.*?)</prompt>', customer_prompt, re.DOTALL)
         prompt = match.group(1).strip() if match else customer_prompt  # returns LiteralString type if matched
         return str(prompt)
@@ -24,7 +38,7 @@ class LlmResponseParser:
     @staticmethod
     def parse(llm_response: str) -> ParsedLlmResponse:
         """
-        Parses a raw LLM response into structured format
+        Parses a raw LLM response into ParsedLlmResponse.
 
         :param llm_response: Raw response from LLM
         :return: Parsed and validated response

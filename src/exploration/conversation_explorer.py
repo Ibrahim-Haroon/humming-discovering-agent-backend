@@ -37,13 +37,21 @@ class ConversationExplorer:
 
     @property
     def progress(self) -> ProgressTracker:
-        """Returns the progress tracker"""
+        """
+        Returns the progress tracker
+
+        :return: The progress tracker
+        :rtype: ProgressTracker
+        """
         return self.__progress
 
     def explore(self) -> ConversationGraph:
         """
         Explores conversation paths in parallel using worker pool.
         Returns the completed conversation graph.
+
+        :return: The completed conversation graph
+        :rtype: ConversationGraph
         """
         try:
             initial_node = ConversationNode(
@@ -79,5 +87,9 @@ class ConversationExplorer:
             self.__worker_pool.shutdown()
 
     def stop(self) -> None:
-        """Signals the explorer to stop after current tasks complete"""
+        """
+        Signals the explorer to stop after current tasks complete
+
+        :return: None
+        """
         self.__stop_event.set()

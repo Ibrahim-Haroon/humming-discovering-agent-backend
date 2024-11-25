@@ -10,10 +10,16 @@ from src.util.singleton import singleton
 @singleton
 class ConversationGraph:
     """
-    Represents the entire conversation tree discovered during exploration.
-    Thread-safe for concurrent exploration.
-    """
+    Thread-safe graph structure representing the entire conversation tree discovered during exploration.
+    Manages nodes and edges while ensuring concurrent access safety.
 
+    :ivar nodes: Dictionary mapping node IDs to ConversationNode objects
+    :type nodes: Dict[str, ConversationNode]
+    :ivar edges: Set of ConversationEdge objects connecting nodes
+    :type edges: Set[ConversationEdge]
+    :ivar root_id: ID of the root node
+    :type root_id: Optional[str]
+    """
     def __init__(self):
         self.nodes: Dict[str, ConversationNode] = {}
         self.edges: Set[ConversationEdge] = set()
@@ -22,10 +28,11 @@ class ConversationGraph:
 
     def add_node(self, node: ConversationNode) -> None:
         """
-        Add a new node to the graph
+        Add a new node to the graph with thread-safety.
 
-        :param node: Node to add
-        :raises ValueError: If node state is invalid for its position
+        :param node: Node to add to the graph
+        :type node: ConversationNode
+        :raises ValueError: If first node isn't in INITIAL state
         """
         with self._lock:
             if not self.root_id:
@@ -36,10 +43,11 @@ class ConversationGraph:
 
     def add_edge(self, edge: ConversationEdge) -> None:
         """
-        Add a new edge to the graph
+        Add a new edge to the graph with thread-safety.
 
-        :param edge: Edge to add
-        :raises ValueError: If source or target nodes don't exist
+        :param edge: Edge to add to the graph
+        :type edge: ConversationEdge
+        :raises ValueError: If source or target nodes don't exist in graph
         """
         with self._lock:
             if edge.source_node_id not in self.nodes:
@@ -49,11 +57,25 @@ class ConversationGraph:
             self.edges.add(edge)
 
     def get_node(self, node_id: str) -> Optional[ConversationNode]:
-        """Retrieve a node by its ID if it exists, otherwise return None"""
+        """
+        Retrieve a node by its ID.
+
+        :param node_id: ID of node to retrieve
+        :type node_id: str
+        :returns: Node if found, None otherwise
+        :rtype: Optional[ConversationNode]
+        """
         return self.nodes.get(node_id)
 
     def get_children(self, node_id: str) -> List[ConversationNode]:
-        """Get all child nodes for a given node"""
+        """
+        Get all immediate child nodes of a given node.
+
+        :param node_id: ID of parent node
+        :type node_id: str
+        :returns: List of child nodes
+        :rtype: List[ConversationNode]
+        """
         children = []
         for edge in self.edges:
             if edge.source_node_id == node_id:
@@ -64,10 +86,12 @@ class ConversationGraph:
 
     def get_path_to_node(self, node_id: str) -> List[ConversationEdge]:
         """
-        Get the sequence of edges leading to a node
+        Get sequence of edges forming path from root to specified node.
 
         :param node_id: Target node ID
-        :returns List of edges forming path from root to node
+        :type node_id: str
+        :returns: Ordered list of edges from root to target
+        :rtype: List[ConversationEdge]
         """
         if node_id not in self.nodes:
             return []
@@ -92,7 +116,12 @@ class ConversationGraph:
         return None
 
     def iter_bfs(self) -> Iterator[ConversationNode]:
-        """Iterate through nodes breadth-first"""
+        """
+        Iterate through nodes in breadth-first order.
+
+        :returns: Iterator yielding nodes in BFS order
+        :rtype: Iterator[ConversationNode]
+        """
         if not self.root_id:
             return
 
@@ -109,7 +138,12 @@ class ConversationGraph:
                     queue.append(child.id)
 
     def iter_dfs(self) -> Iterator[ConversationNode]:
-        """Iterate through nodes depth-first"""
+        """
+        Iterate through nodes in depth-first order.
+
+        :returns: Iterator yielding nodes in DFS order
+        :rtype: Iterator[ConversationNode]
+        """
         if not self.root_id:
             return
 
