@@ -1,9 +1,9 @@
 import os
-import uuid
+import re
 from typing import Optional
 from datetime import datetime
 from src.llm.llm_response_parser import LlmResponseParser
-from src.llm.llm_template import ROLE
+from src.llm.llm_template import CUSTOMER_ROLE, ANALYSIS_ROLE
 from src.llm.llm_conversation_cache import LlmConversationCache
 from src.core.model.conversation_node import ConversationNode
 from src.core.model.conversation_edge import ConversationEdge
@@ -11,9 +11,9 @@ from src.core.model.conversation_graph import ConversationGraph
 from src.core.enum.conversation_state import ConversationState
 from src.exploration.worker.worker_context import WorkerContext
 from src.llm.llm_prompt_contextualizer import LlmPromptContextualizer
-from src.speech.service.speech_transcribe_service import SpeechTranscribeService
 from src.llm.service.llm_response_service import LlmResponseService
 from src.rest.api.voice_api_client import VoiceApiClient, VoiceApiError
+from src.speech.service.speech_transcribe_service import SpeechTranscribeService
 
 
 class ConversationWorker:
@@ -26,7 +26,6 @@ class ConversationWorker:
             llm_service: LlmResponseService,
             graph: ConversationGraph
     ):
-        self.__id = uuid.uuid4()
         self.__voice_client = voice_client
         self.__transcribe_service = transcribe_service
         self.__llm_service = llm_service
@@ -35,64 +34,68 @@ class ConversationWorker:
 
     def explore_path(self, context: WorkerContext) -> tuple[ConversationNode, ConversationEdge]:
         """
-        Explores a single conversation path by:
-        1. Making a call
-        2. Getting the agent's response
-        3. Using LLM to generate a user response
-        4. Creating the next node and edge
+        Explores a conversation path by:
+        1. Generating a customer prompt
+        2. Making a call to get full conversation
+        3. Analyzing transcript to determine state and next steps
+        4. Creating appropriate nodes and edges in the conversation graph
 
         :param context: WorkerContext containing necessary information
         :returns Tuple of (new_node, edge_taken)
         :returns: Tuple of (new_node, edge_taken)
         :raises VoiceApiError: If voice API operations fail
-        :raises TranscriptionError: If speech-to-text fails
-        :raises LLMError: If LLM operations fail
         """
         recording_path: Optional[str] = None
 
         try:
-            system_prompt = self.__generate_system_prompt(context)
+            customer_prompt = context.metadata.get('prompt') or self.generate_new_prompt(context.current_node)
+
+            raw_customer_speech = self.__llm_service.response(
+                role=CUSTOMER_ROLE,
+                prompt=customer_prompt
+            )
+            customer_speech = LlmResponseParser.parse_customer_prompt(raw_customer_speech)
+
             call_response = self.__voice_client.start_call(
                 phone_number=context.phone_number,
-                prompt=system_prompt
+                prompt=customer_speech
             )
 
             recording_path = self.__voice_client.get_recording(
-                call_id=call_response.id,
-                max_retries=3,
-                retry_delay=45  # Wait 45 seconds between retries
+                call_id=call_response.id
             )
 
-            agent_message = self.__transcribe_service.transcribe(recording_path)
+            conversation_transcription = self.__transcribe_service.transcribe(recording_path)
 
-            if not agent_message.strip():
+            if not conversation_transcription.strip():
                 raise ValueError("Received empty transcription from agent")
 
-            history = self.__conversation_history[self.__id] or []
-
-            llm_prompt = LlmPromptContextualizer.generate(
-                context_type=context.business_type,
-                current_agent_message=agent_message,
-                conversation_history=history,
-                explored_paths=context.current_node.explored_responses
-            )
-            llm_raw_response = self.__llm_service.response(ROLE, llm_prompt)
-            llm_response = LlmResponseParser.parse(llm_raw_response)
-
             # Update conversation history
-            self.__conversation_history[self.__id] = (
-                f"AGENT: {agent_message}",
-                f"USER: {llm_response.response}"
+            self.__conversation_history[context.business_type] = (
+                f"PROMPT: {customer_speech}",
+                f"CONVERSATION TRANSCRIPTION: {conversation_transcription}"
             )
+
+            analysis_prompt = LlmPromptContextualizer.generate_analysis_prompt(
+                context_type=context.business_type,
+                customer_prompt=customer_speech,
+                conversation_transcript=conversation_transcription
+            )
+            llm_raw_analysis = self.__llm_service.response(
+                role=ANALYSIS_ROLE,
+                prompt=analysis_prompt
+            )
+
+            llm_analysis = LlmResponseParser.parse(llm_raw_analysis)
 
             # Create new node
             new_node = ConversationNode(
-                agent_message=agent_message,
-                state=llm_response.state,
+                conversation_transcription=conversation_transcription,
+                state=llm_analysis.state,
                 parent_id=context.current_node.id,
                 metadata={
-                    'confidence': llm_response.confidence,
-                    'reasoning': llm_response.reasoning,
+                    'confidence': llm_analysis.confidence,
+                    'reasoning': llm_analysis.reasoning,
                     'call_id': call_response.id,
                     'business_type': context.business_type,
                     'timestamp': datetime.now().isoformat()
@@ -103,10 +106,10 @@ class ConversationWorker:
             edge = ConversationEdge(
                 source_node_id=context.current_node.id,
                 target_node_id=new_node.id,
-                response=llm_response.response,
+                response=llm_analysis.response,
                 timestamp=datetime.now(),
                 metadata={
-                    'confidence': llm_response.confidence,
+                    'confidence': llm_analysis.confidence,
                     'call_id': call_response.id
                 }
             )
@@ -137,8 +140,7 @@ class ConversationWorker:
             if recording_path and os.path.exists(recording_path):
                 try:
                     os.remove(recording_path)
-                except Exception as e:
-                    # logging.error(f"Failed to clean up recording file: {str(e)}")
+                except NotImplementedError:
                     pass
 
     def __create_error_node(
@@ -149,7 +151,7 @@ class ConversationWorker:
     ) -> tuple[ConversationNode, ConversationEdge]:
         """Creates an error node and edge for handling exploration failures"""
         error_node = ConversationNode(
-            agent_message="Error during exploration",
+            conversation_transcription="Error during exploration",
             state=ConversationState.ERROR,
             parent_id=parent_id,
             metadata={
@@ -175,22 +177,23 @@ class ConversationWorker:
 
         return error_node, error_edge
 
-    @staticmethod
-    def __generate_system_prompt(context: WorkerContext) -> str:
-        """Generates appropriate system prompt based on context"""
-        # If we have a parent edge, we want to include the previous response
-        if context.parent_edge:
-            return (
-                f"Previous customer response: {context.parent_edge.response}\n"
-                f"Business type: {context.business_type}"
-            )
+    def generate_new_prompt(self, node: ConversationNode) -> Optional[str]:
+        """Generate unique conversation prompt for unexplored paths"""
+        prompt = LlmPromptContextualizer.generate_customer_prompt(
+            context_type=node.metadata.get('business_type'),
+            conversation_history=self.__conversation_history[node.metadata.get('business_type')] or [],
+            explored_paths=node.explored_responses
+        )
 
-        # For root node, just provide business context
-        return f"Business type: {context.business_type}"
+        llm_response = self.__llm_service.response(
+            role=CUSTOMER_ROLE,
+            prompt=prompt
+        )
 
+        return LlmResponseParser.parse_customer_prompt(llm_response)
 
-    def cleanup(self) -> None:
+    def cleanup(self, context: WorkerContext) -> None:
         """Deletes conversation history when done with a path"""
         # Clear conversation history when done with this path
-        if self.__id in self.__conversation_history:
-            del self.__conversation_history[self.__id]
+        if context.business_type in self.__conversation_history:
+            del self.__conversation_history[context.business_type]
