@@ -1,6 +1,5 @@
 from flask import Flask
 from flask_cors import CORS
-from src.util.env import Env
 from src.rest.api.graph_api import register_graph_routes
 from src.service.exploration_service import ExplorationService
 
@@ -12,7 +11,6 @@ class ApplicationServer:
 
     def __init__(self, host='0.0.0.0', port=8000):
         self.__app = Flask(__name__)
-        self.__app.debug = Env()["DEBUG"]
         self.__host = host
         self.__port = port
         self.__configure_app()
