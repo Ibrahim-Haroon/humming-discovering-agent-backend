@@ -98,7 +98,8 @@ class ConversationWorker:
                     'reasoning': llm_analysis.reasoning,
                     'call_id': call_response.id,
                     'business_type': context.business_type,
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': datetime.now().isoformat(),
+                    'prompt': customer_prompt
                 }
             )
 
