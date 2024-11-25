@@ -1,10 +1,59 @@
 import time
+import threading
+from flask_cors import CORS
+from flask import Flask, jsonify
 from src.rest.api.voice_api_client import VoiceApiClient
 from src.core.model.conversation_graph import ConversationGraph
 from src.exploration.conversation_explorer import ConversationExplorer
 from src.exploration.worker.conversation_worker import ConversationWorker
 from src.llm.service.openai_llm_response_service import OpenAILlmResponseService
 from src.speech.service.deepgram_transcribe_service import DeepgramTranscribeService
+
+app = Flask(__name__)
+CORS(app)
+
+
+@app.route('/api/conversation-graph', methods=['GET'])
+def get_graph():
+    """
+    Get the current conversation graph as JSON
+    :return: JSON representation of the conversation graph
+    ex. {
+        "nodes": [
+            {
+                "id": "node1",
+                "state": "INITIAL",
+                "prompt": "Welcome to our AC and Plumbing company. How can I help you today?"
+            },
+            ...
+        ],
+        "edges": [
+            {
+                "source": "node1",
+                "target": "node2"
+            },
+            ...
+        ]
+    }
+    """
+    graph = ConversationGraph()
+    return jsonify({
+        'nodes': [
+            {
+                'id': node.id,
+                'state': node.state.name,
+                'prompt': node.metadata.get('prompt', ''),
+            }
+            for node in graph.nodes.values()
+        ],
+        'edges': [
+            {
+                'source': edge.source_node_id,
+                'target': edge.target_node_id
+            }
+            for edge in graph.edges
+        ]
+    })
 
 
 def run_test_exploration():
@@ -67,5 +116,12 @@ def run_test_exploration():
         explorer.stop()
 
 
+def run_flask():
+    app.run(port=8000, debug=False)
+
+
 if __name__ == "__main__":
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+
     run_test_exploration()
