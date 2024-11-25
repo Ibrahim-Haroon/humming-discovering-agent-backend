@@ -10,33 +10,33 @@ from src.util.singleton import singleton
 class LlmConversationCache(MutableMapping):
     def __init__(self):
         """
-        A thread-safe cache for storing conversations. Key is a UUID representing the LLM ID.
-        The value is a list of tuples, where the first element is the message from the voice AI agent
-        and the second element is the LLM response.
+        A thread-safe cache for storing conversations. Key is a string representing the business context.
+        The value is a list of tuples, where the first element is the prompt made by the LLM, and the second element
+        is the Agent and LLM conversation's transcription.
         """
-        self.__cache: Dict[UUID, List[Tuple[str, str]]] = {}
+        self.__cache: Dict[str, List[Tuple[str, str]]] = {}
         self._lock = RLock()
 
     @override
-    def __getitem__(self, llm_id: UUID) -> Optional[List[Tuple[str, str]]]:
+    def __getitem__(self, llm_id: str) -> Optional[List[Tuple[str, str]]]:
         with self._lock:
             return self.__cache.get(llm_id)
 
     @override
-    def __setitem__(self, llm_id: UUID, value: Tuple[str, str]) -> None:
+    def __setitem__(self, llm_id: str, value: Tuple[str, str]) -> None:
         with self._lock:
             if llm_id not in self.__cache:
                 self.__cache[llm_id] = []
             self.__cache[llm_id].append(value)
 
     @override
-    def __delitem__(self, llm_id: UUID) -> None:
+    def __delitem__(self, llm_id: str) -> None:
         with self._lock:
             if llm_id in self.__cache:
                 del self.__cache[llm_id]
 
     @override
-    def __iter__(self) -> Iterator[UUID]:
+    def __iter__(self) -> Iterator[str]:
         with self._lock:
             return iter(self.__cache.keys())
 
@@ -45,7 +45,7 @@ class LlmConversationCache(MutableMapping):
         with self._lock:
             return len(self.__cache)
 
-    def items(self) -> List[Tuple[UUID, List[Tuple[str, str]]]]:
+    def items(self) -> List[Tuple[str, List[Tuple[str, str]]]]:
         """Return all items in the cache as a list of (key, value) pairs."""
         with self._lock:
             return list(self.__cache.items())
@@ -55,7 +55,7 @@ class LlmConversationCache(MutableMapping):
         with self._lock:
             self.__cache.clear()
 
-    def keys(self) -> List[UUID]:
+    def keys(self) -> List[str]:
         """Returns a list of all LLM IDs in the cache."""
         with self._lock:
             return list(self.__cache.keys())
