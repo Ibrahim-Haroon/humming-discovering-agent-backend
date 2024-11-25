@@ -8,13 +8,13 @@ from src.speech.service.deepgram_transcribe_service import DeepgramTranscribeSer
 
 
 def run_test_exploration():
-    # Initialize services
     voice_client = VoiceApiClient()
     transcribe_service = DeepgramTranscribeService()
     llm_service = OpenAILlmResponseService()
 
     # Create shared graph
     graph = ConversationGraph()
+    num_workers = 3
 
     # Create workers
     workers = [
@@ -24,29 +24,22 @@ def run_test_exploration():
             llm_service=llm_service,
             graph=graph
         )
-        for _ in range(3)  # Create 3 workers
+        for _ in range(num_workers)  # Create 3 workers
     ]
 
-    # Initialize explorer with AC company number
     explorer = ConversationExplorer(
         workers=workers,
         phone_number="+14153580761",  # AC company number
         business_type="Air Conditioning and Plumbing company",
-        max_depth=2,  # Limit depth for testing
-        max_parallel=3
+        max_depth=5,  # Limit depth for testing
+        max_parallel=num_workers
     )
 
     print("Starting conversation exploration...")
     start_time = time.time()
 
     try:
-        # Start exploration
         graph = explorer.explore()
-
-        # Print progress updates every 5 seconds
-        while not explorer.progress.is_complete():
-            print("\n" + explorer.progress.get_progress_summary())
-            time.sleep(5)
 
         # Final stats
         duration = time.time() - start_time
@@ -64,7 +57,7 @@ def run_test_exploration():
                 print("\nPath:")
                 for edge in path:
                     print(f"→ {edge.response}")
-                print(f"[{node.state.name}] {node.agent_message}")
+                print(f"[{node.state.name}] {node.conversation_transcription[:200]}...")
 
     except KeyboardInterrupt:
         print("\nExploration stopped by user")
@@ -72,10 +65,6 @@ def run_test_exploration():
     except Exception as e:
         print(f"\nError during exploration: {str(e)}")
         explorer.stop()
-    finally:
-        # Cleanup
-        for worker in workers:
-            worker.cleanup()
 
 
 if __name__ == "__main__":
