@@ -117,7 +117,7 @@ def run_test_exploration():
 
 
 def run_flask():
-    app.run(port=8000, debug=False)
+    app.run(host='0.0.0.0', port=8000)
 
 
 if __name__ == "__main__":
