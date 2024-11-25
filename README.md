@@ -1,4 +1,4 @@
-# System Architecture
+# Program Flow
 
 ```mermaid
 flowchart TD
