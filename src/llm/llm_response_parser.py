@@ -1,3 +1,4 @@
+import re
 import json
 from dataclasses import dataclass
 from src.core.enum.conversation_state import ConversationState
@@ -13,6 +14,12 @@ class ParsedLlmResponse:
 
 class LlmResponseParser:
     """Handles parsing and validation of LLM responses"""
+
+    @staticmethod
+    def parse_customer_prompt(customer_prompt) -> str:
+        match = re.search(r'<prompt>(.*?)</prompt>', customer_prompt, re.DOTALL)
+        prompt = match.group(1).strip() if match else customer_prompt  # returns LiteralString type if matched
+        return str(prompt)
 
     @staticmethod
     def parse(llm_response: str) -> ParsedLlmResponse:
