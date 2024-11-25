@@ -1,3 +1,4 @@
+import time
 from threading import Event
 from typing import List
 from src.core.model.conversation_node import ConversationNode
@@ -46,7 +47,7 @@ class ConversationExplorer:
         """
         try:
             initial_node = ConversationNode(
-                agent_message="",  # Will be populated by first call
+                conversation_transcription="",  # Will be populated by first call
                 state=ConversationState.INITIAL
             )
             self.__graph.add_node(initial_node)
@@ -68,8 +69,9 @@ class ConversationExplorer:
 
             # Wait for completion or stop event
             while not self.__stop_event.is_set():
-                if self.__progress.is_complete():
+                if self.__worker_pool.is_idle() and self.__worker_pool.task_queue.empty():
                     break
+                time.sleep(1)
 
             return self.__graph
 
