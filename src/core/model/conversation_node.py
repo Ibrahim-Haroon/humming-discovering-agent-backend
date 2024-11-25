@@ -11,10 +11,10 @@ class ConversationNode:
     """
     Represents a point in the conversation where the voice AI agent has spoken and is waiting for user input.
     """
-    agent_message: str  # The message from the voice AI agent
+    conversation_transcription: str  # The full conversation transcript
     state: ConversationState  # Current state of this node
     parent_id: Optional[str] = None  # ID of the parent node
-    explored_responses: Set[str] = field(default_factory=set)  # Responses tried
+    explored_responses: Set[str] = field(default_factory=set)  # Customer prompts tried
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional data
     created_at: datetime = field(default_factory=datetime.now)
     _id: Optional[str] = None  # Internal node ID
@@ -25,7 +25,7 @@ class ConversationNode:
         self.__response_similarity = ResponseSimilarity()
 
         if self._id is None:
-            self._id = self._node_identifier.generate_id(self.agent_message, self.parent_id)
+            self._id = self._node_identifier.generate_id(self.conversation_transcription, self.parent_id)
 
         # Validate state transitions
         if self.parent_id is None and self.state != ConversationState.INITIAL:
@@ -36,20 +36,20 @@ class ConversationNode:
         """Unique identifier for this node"""
         return self._id
 
-    def add_response(self, response: str) -> bool:
+    def add_response(self, prompt: str) -> bool:
         """
-        Add a response that's been tried from this node.
+        Add a customer prompt that's been tried for this conversation path.
 
-        :param response: The user response to add
+        :param prompt: The user response to add
         :returns False if a similar response has already been explored
         """
-        if self.state.name.startswith('TERMINAL'):
-            raise ValueError("Cannot add responses to terminal nodes")
+        # if self.state.name.startswith('TERMINAL'):
+        #     raise ValueError("Cannot add prompts to terminal nodes")
 
-        if self.__response_similarity.find_similar(response, self.explored_responses):
+        if self.__response_similarity.find_similar(prompt, self.explored_responses):
             return False
 
-        self.explored_responses.add(response)
+        self.explored_responses.add(prompt)
         return True
 
     def is_terminal(self) -> bool:
