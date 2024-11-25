@@ -6,12 +6,12 @@ from datetime import datetime
 @dataclass(frozen=True)
 class ConversationEdge:
     """
-    Represents a transition between two conversation states via a user response.
+    Represents a transition between two conversations via a customer prompt.
     Immutable to ensure edge integrity in the graph.
     """
     source_node_id: str  # ID of the source node
     target_node_id: str  # ID of the target node
-    response: str  # The user response that led to this transition
+    response: str  # The customer prompt that led to this conversation
     timestamp: datetime  # When this transition occurred
     metadata: Optional[dict] = None  # Additional metadata about the transition
 
