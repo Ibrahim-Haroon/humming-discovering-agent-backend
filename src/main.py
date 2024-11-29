@@ -2,6 +2,8 @@ from flask import Flask
 from flask_cors import CORS
 from src.rest.api.graph_api import register_graph_routes
 from src.service.exploration_service import ExplorationService
+from src.llm.service.openai_llm_response_service import OpenAILlmResponseService
+from src.speech.service.deepgram_transcribe_service import DeepgramTranscribeService
 
 
 class ApplicationServer:
@@ -31,7 +33,9 @@ def main():
 
     exploration_service = ExplorationService(
         phone_number="+14153580761",  # AC company number
-        business_type="Air Conditioning and Plumbing company"
+        business_type="Air Conditioning and Plumbing company",
+        llm_service=OpenAILlmResponseService(),
+        transcribe_service=DeepgramTranscribeService()
     )
     exploration_service.run_exploration()
 
