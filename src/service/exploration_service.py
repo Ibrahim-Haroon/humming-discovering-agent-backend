@@ -1,11 +1,11 @@
 import time
 import logging
 from src.rest.api.voice_api_client import VoiceApiClient
-from src.speech.service.deepgram_transcribe_service import DeepgramTranscribeService
-from src.llm.service.openai_llm_response_service import OpenAILlmResponseService
+from src.llm.service.llm_response_service import LlmResponseService
 from src.core.model.conversation_graph import ConversationGraph
 from src.exploration.conversation_explorer import ConversationExplorer
 from src.exploration.worker.conversation_worker import ConversationWorker
+from src.speech.service.speech_transcribe_service import SpeechTranscribeService
 
 
 class ExplorationService:
@@ -18,27 +18,29 @@ class ExplorationService:
             self,
             phone_number: str,
             business_type: str,
+            llm_service: LlmResponseService,
+            transcribe_service: SpeechTranscribeService,
             num_workers: int = 3,
             max_depth: int = 5
     ):
         self.phone_number = phone_number
         self.business_type = business_type
+        self.llm_service = llm_service
+        self.transcribe_service = transcribe_service
         self.num_workers = num_workers
         self.max_depth = max_depth
         self.explorer = None
 
-    def initialize_services(self):
+    def __initialize_services(self):
         """Initialize all required services and workers"""
         voice_client = VoiceApiClient()
-        transcribe_service = DeepgramTranscribeService()
-        llm_service = OpenAILlmResponseService()
         graph = ConversationGraph()
 
         workers = [
             ConversationWorker(
                 voice_client=voice_client,
-                transcribe_service=transcribe_service,
-                llm_service=llm_service,
+                transcribe_service=self.transcribe_service,
+                llm_service=self.llm_service,
                 graph=graph
             )
             for _ in range(self.num_workers)
@@ -54,7 +56,7 @@ class ExplorationService:
 
     def run_exploration(self):
         """Execute the exploration process"""
-        self.initialize_services()
+        self.__initialize_services()
 
         ExplorationService.logger.debug("Starting conversation exploration...")
         start_time = time.time()
