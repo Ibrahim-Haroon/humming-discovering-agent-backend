@@ -7,38 +7,15 @@ class LlmPromptContextualizer:
     """
 
     @staticmethod
-    def generate_continuation_prompt(
-            context_type: str,
-            current_agent_message: str,
-            conversation_history: list[tuple[str, str]],
-            explored_paths: set[str]
-    ) -> str:
-        """
-        Generate contextual prompt for continuing conversation.
-
-        :param context_type: Type of business/service
-        :type context_type: str
-        :param current_agent_message: Latest message from agent
-        :type current_agent_message: str
-        :param conversation_history: List of (prompt, response) pairs
-        :type conversation_history: list[tuple[str, str]]
-        :param explored_paths: Previously explored conversation paths
-        :type explored_paths: set[str]
-        :returns: Generated prompt
-        :rtype: str
-        """
-        return LlmTemplate.generate_exploration_response(
-            context_type,
-            current_agent_message,
-            conversation_history,
-            explored_paths
-        )
+    def generate_initial_prompt(
+            business_type
+    ):
+        return LlmTemplate.initial_customer_prompt(business_type)
 
     @staticmethod
     def generate_customer_prompt(
             context_type: str,
             conversation_history: list[tuple[str, str]],
-            explored_paths: set[str]
     ) -> str:
         """
         Generate prompts in the context of a customer (first person).
@@ -47,15 +24,13 @@ class LlmPromptContextualizer:
         :type context_type: str
         :param conversation_history: Previous conversations as (prompt, response) pairs
         :type conversation_history: list[tuple[str, str]]
-        :param explored_paths: Previously explored paths
         :type explored_paths: set[str]
         :returns: Generated customer prompt
         :rtype: str
         """
         return LlmTemplate.generate_customer_prompt(
             context_type,
-            conversation_history,
-            explored_paths
+            conversation_history
         )
 
     @staticmethod
