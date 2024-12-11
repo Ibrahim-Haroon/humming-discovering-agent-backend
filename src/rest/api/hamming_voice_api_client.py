@@ -13,7 +13,7 @@ from src.rest.dto.hamming_call_request_dto import HammingCallRequestDTO
 from src.rest.dto.hamming_call_response_dto import HammingCallResponseDTO
 
 
-class VoiceApiError(Exception):
+class HammingVoiceApiError(Exception):
     """Custom exception for Voice API errors"""
 
     def __init__(self, message: str, status_code: Optional[int] = None):
@@ -21,7 +21,7 @@ class VoiceApiError(Exception):
         super().__init__(message)
 
 
-class VoiceApiClient:
+class HammingVoiceApiClient:
     """
     Client for interacting with Hamming Voice API, handling calls and recordings.
 
@@ -76,7 +76,7 @@ class VoiceApiClient:
                 )
 
                 if response.status_code != 200:
-                    raise VoiceApiError(
+                    raise HammingVoiceApiError(
                         f"Failed to start call: {response.text}",
                         response.status_code
                     )
@@ -88,7 +88,7 @@ class VoiceApiClient:
             return HammingCallResponseDTO(id=call_id)
 
         except requests.RequestException as e:
-            raise VoiceApiError(f"API request failed: {str(e)}")
+            raise HammingVoiceApiError(f"API request failed: {str(e)}")
 
     def get_recording(
         self,
@@ -110,16 +110,16 @@ class VoiceApiClient:
             # Wait for webhook callback
             with self.__callback.callback_lock:
                 if call_id not in self.__callback.callbacks:
-                    raise VoiceApiError("No callback queue for call ID")
+                    raise HammingVoiceApiError("No callback queue for call ID")
                 queue = self.__callback.callbacks[call_id]
 
             # Wait for callback
             try:
                 webhook_data = queue.get(timeout=timeout)
                 if not webhook_data.get('recording_available'):
-                    raise VoiceApiError("Recording not available")
+                    raise HammingVoiceApiError("Recording not available")
             except Empty:
-                raise VoiceApiError("Webhook timeout")
+                raise HammingVoiceApiError("Webhook timeout")
             finally:
                 with self.__callback.callback_lock:
                     if call_id in self.__callback.callbacks:
@@ -134,7 +134,7 @@ class VoiceApiClient:
             )
 
             if response.status_code != 200:
-                raise VoiceApiError(
+                raise HammingVoiceApiError(
                     f"Failed to get recording: {response.text}",
                     response.status_code
                 )
@@ -148,4 +148,4 @@ class VoiceApiClient:
             return file_path
 
         except requests.RequestException as e:
-            raise VoiceApiError(f"Failed to get recording: {str(e)}")
+            raise HammingVoiceApiError(f"Failed to get recording: {str(e)}")
