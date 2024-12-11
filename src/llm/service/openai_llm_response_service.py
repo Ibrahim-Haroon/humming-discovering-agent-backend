@@ -1,6 +1,7 @@
 import requests
-from typing import override
+from typing import override, Optional, List
 from src.util.env import Env
+from src.llm.history.llm_message import LlmMessage
 from src.llm.service.llm_response_service import LlmResponseService
 
 
@@ -19,7 +20,7 @@ class OpenAILlmResponseService(LlmResponseService):
         return self.__model
 
     @override
-    def response(self, role: str, prompt: str) -> str:
+    def response(self, role: str, prompt: str, conversation_history: Optional[List[LlmMessage]]) -> str:
         payload = {
             "model": self.__model,
             "messages": [
@@ -27,14 +28,15 @@ class OpenAILlmResponseService(LlmResponseService):
                     "role": "system",
                     "content": role
                 },
+                *[
+                    {
+                        "role": m.role,
+                        "content": m.content
+                    } for m in (conversation_history or [])
+                ],
                 {
                     "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt,
-                        }
-                    ]
+                    "content": prompt
                 }
             ]
         }
