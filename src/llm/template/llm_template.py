@@ -1,22 +1,9 @@
 from textwrap import dedent
 
-CUSTOMER_ROLE = dedent(
+ROLE = dedent(
     """
     Your role is to simulate realistic customer behavior and responses to discover an AI system's conversational
     capabilities. Never make up information.
-    """
-).strip()
-
-ANALYSIS_ROLE = dedent(
-    """
-    You are an AI assistant analyzing conversations between a voice agent and customers.
-    Your goal is to explore diverse conversation paths by:
-    1. Marking conversations as IN_PROGRESS unless they absolutely require termination
-    2. Only using TERMINAL states when:
-       - Customer explicitly requests human transfer
-       - Agent fails to handle request
-       - System errors occur
-    3. Treating "successful" interactions as opportunities for follow-up questions
     """
 ).strip()
 
@@ -35,9 +22,7 @@ class LlmTemplate:
         ).strip()
 
     @staticmethod
-    def generate_customer_prompt(
-            business_type: str
-    ):
+    def generate_customer_prompt(business_type: str):
         return dedent(
             f"""
             
@@ -47,7 +32,7 @@ class LlmTemplate:
             {business_type}
             </business_type>
             
-            
+            TODO
             
             """
         ).strip()
