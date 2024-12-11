@@ -43,7 +43,7 @@ class ConversationGraph:
                 raise ValueError("Edge nodes must exist in graph")
             self.__edges.add(edge)
 
-    def __build_conversation_history(self, node_id: UUID) -> List[LlmMessage]:
+    def build_conversation_history(self, node_id: UUID) -> List[LlmMessage]:
         """
         Builds the conversation history by walking up the graph from the given node to the root.
         Returns list of messages in chronological order (root to current node).
