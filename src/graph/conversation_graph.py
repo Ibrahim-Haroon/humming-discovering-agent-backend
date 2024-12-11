@@ -1,4 +1,5 @@
 import re
+from uuid import UUID
 from difflib import SequenceMatcher
 from threading import RLock
 from typing import Dict, Set, Optional, List
@@ -7,11 +8,12 @@ from src.graph.node import Node
 from src.util.singleton import singleton
 from src.llm.history.llm_message import LlmMessage
 
+
 @singleton
 class ConversationGraph:
     def __init__(self, node_similarity_threshold: float = 0.85):
-        self.__root_id: Optional[str] = None
-        self.__nodes: Dict[str, Node] = {}
+        self.__root_id: Optional[UUID] = None
+        self.__nodes: Dict[UUID, Node] = {}
         self.__edges: Set[Edge] = set()
         self.__node_similarity_threshold = node_similarity_threshold
         self.__lock = RLock()
@@ -41,7 +43,7 @@ class ConversationGraph:
                 raise ValueError("Edge nodes must exist in graph")
             self.__edges.add(edge)
 
-    def __build_conversation_history(self, node_id: str) -> List[LlmMessage]:
+    def __build_conversation_history(self, node_id: UUID) -> List[LlmMessage]:
         """
         Builds the conversation history by walking up the graph from the given node to the root.
         Returns list of messages in chronological order (root to current node).
@@ -52,7 +54,7 @@ class ConversationGraph:
 
             while current_node_id is not None:
                 current_node = self.__nodes[current_node_id]
-                messages.append(current_node.agent_message)
+                messages.append(current_node.assistant_message)
 
                 if current_node.parent_id is not None:
                     edge = next(

@@ -1,6 +1,6 @@
+import uuid
 from src.graph.node import Node
 from src.graph.conversation_graph import ConversationGraph
-from src.llm.cache.llm_conversation_cache import LlmConversationCache
 from src.llm.history.llm_message import LlmMessage
 from src.llm.service.llm_response_service import LlmResponseService
 from src.llm.template.llm_prompt_contextualizer import LlmPromptContextualizer
@@ -24,7 +24,6 @@ class DiscoveryService:
         self.__llm_service = llm_service
         self.__transcription_service = transcription_service
         self.__graph: ConversationGraph = ConversationGraph()
-        self.__conversation_cache = LlmConversationCache()
 
     def discover(self):
         initial_prompt = LlmPromptContextualizer.generate_initial_prompt(
@@ -37,7 +36,7 @@ class DiscoveryService:
             raise ValueError("Received empty transcription from agent")
 
         root_node = Node(
-            id="",  # TODO: ?
+            id=uuid.uuid4(),
             decision_point=transcription,
             assistant_message=LlmMessage(role="assistant", content=transcription),
             is_initial=True
@@ -56,5 +55,3 @@ class DiscoveryService:
         )
         recording_path = self.__hamming_api_client.get_recording(call_response.id)
         return self.__transcription_service.transcribe(recording_path)
-
-

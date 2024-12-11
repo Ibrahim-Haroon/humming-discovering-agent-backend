@@ -1,3 +1,4 @@
+from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -6,10 +7,10 @@ from src.llm.history.llm_message import LlmMessage
 
 @dataclass
 class Node:
-    id: str
+    id: UUID
     decision_point: str
     assistant_message: LlmMessage
-    parent_id: Optional[str] = None
+    parent_id: Optional[UUID] = None
     is_initial: bool = False
     is_terminal: bool = False
     depth: int = 0

@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import datetime
 from dataclasses import dataclass, field
 from src.llm.history.llm_message import LlmMessage
@@ -5,8 +6,8 @@ from src.llm.history.llm_message import LlmMessage
 
 @dataclass
 class Edge:
-    source_node_id: str
-    target_node_id: str
+    source_node_id: UUID
+    target_node_id: UUID
     user_message: LlmMessage
     created_at: datetime = field(default_factory=datetime.now)
 
