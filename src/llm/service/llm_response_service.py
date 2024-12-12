@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
-from src.llm.history.llm_message import LlmMessage
+from src.llm.models.llm_message import LlmMessage
 
 
 class LlmResponseService(ABC):

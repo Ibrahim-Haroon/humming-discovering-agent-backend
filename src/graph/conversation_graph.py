@@ -6,12 +6,12 @@ from typing import Dict, Set, Optional, List
 from src.graph.edge import Edge
 from src.graph.node import Node
 from src.util.singleton import singleton
-from src.llm.history.llm_message import LlmMessage
+from src.llm.models.llm_message import LlmMessage
 
 
 @singleton
 class ConversationGraph:
-    def __init__(self, node_similarity_threshold: float = 0.85):
+    def __init__(self, node_similarity_threshold: float = 0.60):
         self.__root_id: Optional[UUID] = None
         self.__nodes: Dict[UUID, Node] = {}
         self.__edges: Set[Edge] = set()

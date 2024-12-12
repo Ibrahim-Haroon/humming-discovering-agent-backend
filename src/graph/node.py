@@ -2,7 +2,7 @@ from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from dataclasses import dataclass, field
-from src.llm.history.llm_message import LlmMessage
+from src.llm.models.llm_message import LlmMessage
 
 
 @dataclass

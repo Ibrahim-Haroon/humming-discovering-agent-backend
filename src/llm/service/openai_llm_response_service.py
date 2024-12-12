@@ -1,7 +1,7 @@
 import requests
 from typing import override, Optional, List
 from src.util.env import Env
-from src.llm.history.llm_message import LlmMessage
+from src.llm.models.llm_message import LlmMessage
 from src.llm.service.llm_response_service import LlmResponseService
 
 
