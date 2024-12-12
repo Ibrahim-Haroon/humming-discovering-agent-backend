@@ -1,5 +1,5 @@
 from flask import jsonify
-from src.core.model.conversation_graph import ConversationGraph
+from src.graph.conversation_graph import ConversationGraph
 
 
 def register_graph_routes(app):
