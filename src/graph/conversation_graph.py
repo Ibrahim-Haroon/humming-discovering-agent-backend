@@ -18,6 +18,14 @@ class ConversationGraph:
         self.__node_similarity_threshold = node_similarity_threshold
         self.__lock = RLock()
 
+    @property
+    def nodes(self):
+        return self.__nodes.copy()
+
+    @property
+    def edges(self):
+        return self.__edges.copy()
+
     def add_node(self, node: Node):
         with self.__lock:
             if not self.__root_id:
