@@ -20,7 +20,12 @@ class OpenAILlmResponseService(LlmResponseService):
         return self.__model
 
     @override
-    def response(self, role: str, prompt: str, conversation_history: Optional[List[LlmMessage]]) -> str:
+    def response(
+            self,
+            role: str, prompt: str,
+            conversation_history: Optional[List[LlmMessage]],
+            timeout: Optional[int] = None
+    ) -> str:
         payload = {
             "model": self.__model,
             "messages": [
@@ -41,11 +46,15 @@ class OpenAILlmResponseService(LlmResponseService):
             ]
         }
 
-        response = requests.post(
-            url=self.__url,
-            headers=self.__headers,
-            json=payload
-        )
+        try:
+            response = requests.post(
+                url=self.__url,
+                headers=self.__headers,
+                json=payload,
+                timeout=5  # 5 second timeout
+            )
+        except requests.exceptions.Timeout:
+            raise TimeoutError("OpenAI must be down or increase timeout duration")
 
         response_data = response.json()
         try:
