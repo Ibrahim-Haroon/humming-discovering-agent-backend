@@ -7,7 +7,7 @@ from src.llm.history.llm_message import LlmMessage
 from src.llm.models.llm_conversation_analysis import LlmConversationAnalysis
 from src.llm.service.llm_response_service import LlmResponseService
 from src.llm.template.llm_template import CUSTOMER_ROLE, ANALYSIS_ROLE
-from src.llm.template.llm_prompt_contextualizer import LlmPromptContextualizer
+from src.llm.template.llm_template import LlmTemplate
 from src.rest.api.hamming_voice_api_client import HammingVoiceApiClient
 from src.rest.dto.hamming_call_response_dto import HammingCallResponseDTO
 from src.speech.service.speech_transcribe_service import SpeechTranscribeService
@@ -32,7 +32,7 @@ class DiscoveryService:
         self.__graph: ConversationGraph = ConversationGraph()
 
     def discover(self):
-        initial_prompt = LlmPromptContextualizer.generate_initial_prompt(
+        initial_prompt = LlmTemplate.initial_customer_prompt(
             self.__business_type
         )
 
@@ -87,7 +87,7 @@ class DiscoveryService:
                 self.__explore_node(new_node)
 
     def __analyze_conversation_state(self, agent_response: str) -> LlmConversationAnalysis:
-        contextualized_prompt = LlmPromptContextualizer.generate_analysis_prompt(
+        contextualized_prompt = LlmTemplate.transcription_analysis_prompt(
             self.__business_type,
             agent_response
         )
@@ -117,7 +117,7 @@ class DiscoveryService:
             response: str
     ) -> str:
         history = self.__graph.build_conversation_history(node_id)
-        contextualized_prompt = LlmPromptContextualizer.generate_response_prompt(
+        contextualized_prompt = LlmTemplate.response_customer_prompt(
             self.__business_type,
             response
         )
