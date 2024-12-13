@@ -36,7 +36,7 @@ class ConversationGraph:
                 return
 
             similar_node = self.__find_similar_node(
-                self.__normalize_text(node.decision_point)
+                node.decision_point
             )
 
             if not similar_node:
