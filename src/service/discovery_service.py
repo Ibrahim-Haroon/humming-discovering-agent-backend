@@ -3,7 +3,7 @@ from typing import Optional
 from src.graph.edge import Edge
 from src.graph.node import Node
 from src.graph.conversation_graph import ConversationGraph
-from src.llm.history.llm_message import LlmMessage
+from src.llm.models.llm_message import LlmMessage
 from src.llm.models.llm_conversation_analysis import LlmConversationAnalysis
 from src.llm.service.llm_response_service import LlmResponseService
 from src.llm.template.llm_template import CUSTOMER_ROLE, ANALYSIS_ROLE
@@ -21,15 +21,16 @@ class DiscoveryService:
             hamming_api_client: HammingVoiceApiClient,
             llm_service: LlmResponseService,
             transcription_service: SpeechTranscribeService,
+            conversation_graph: ConversationGraph,
             max_depth: Optional[int] = None
     ):
         self.__business_type = business_type
         self.__business_number = business_number
-        self.__max_depth = max_depth
         self.__hamming_api_client = hamming_api_client
         self.__llm_service = llm_service
         self.__transcription_service = transcription_service
-        self.__graph: ConversationGraph = ConversationGraph()
+        self.__graph: ConversationGraph = conversation_graph
+        self.__max_depth = max_depth
 
     def discover(self):
         initial_prompt = LlmTemplate.initial_customer_prompt(
@@ -83,7 +84,7 @@ class DiscoveryService:
             )
             self.__graph.add_edge(edge)
 
-            if node_id == new_node.id:
+            if node_id == new_node.id:  # if false, that means `add_node` returned an existing node
                 self.__explore_node(new_node)
 
     def __analyze_conversation_state(self, agent_response: str) -> LlmConversationAnalysis:
