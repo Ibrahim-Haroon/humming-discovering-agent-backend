@@ -123,7 +123,12 @@ class LlmTemplate:
             - Work backward to find the first unanswered question.  
             - If all questions are answered, check for terminal states.  
             
-            4. DETERMINE IF TERMINAL
+            4. Determine if encountered situation before
+            - If a situation has been analyzed before, then immediately return false
+            - Ex. Told the agent you're facing a problem, if next time you're asked again about the problem you're
+              facing then just return "True|" since outcome will be the same/similar. 
+            
+            5. DETERMINE IF TERMINAL
             Terminal states (return "True|"):
             - Call transferred to human agent
             - Appointment confirmed 
@@ -133,15 +138,17 @@ class LlmTemplate:
             Non-terminal states (return "False|response1;response2;etc"):
             - Last statement is a question
             - Question requires customer input
-            
-            5. GENERATE RESPONSE OPTIONS
+
+            6. GENERATE RESPONSE OPTIONS
             For non-terminal states only:
             - Must be natural customer speech
             - Must directly answer the last question
             - Must include ALL valid options
             - NEVER include "hang up" or meta-instructions as responses
+            - If asked for personal information (name, address, phone, etc), generate exactly ONE generic response 
+            - multiple variations of personal details create unnecessary paths
             - Format with EXACT separators: | between terminal flag and responses, ; between responses
-            
+                        
             Examples using proper parsing:
             
             Transcript: "hello thank you for calling plumbing this is john are you an existing customer hang up goodbye"
@@ -150,8 +157,8 @@ class LlmTemplate:
             Last statement: "are you an existing customer"
             Response: "False|Yes, I am an existing customer;No, I'm not an existing customer"
             
-            Transcript: "hello thank you for calling anthem air conditioning and plumbing this is olivia speaking are
-            you an existing customer yes i'm an existing customer is this an emergency end call goodbye"
+            Transcript: "hello thank you for calling plumbing are you an existing customer yes i am an existing customer
+            is this an emergency end call goodbye"
             Parsing:
             Front desk: "hello thank you for calling anthem air conditioning and plumbing this is olivia speaking are
             you an existing customer"
@@ -174,6 +181,17 @@ class LlmTemplate:
             Last statement: "what kind of issue are you facing"
             Response: "False|The issue I'm facing is that my hot water is not working"
             
+            Transcript: "hello thank you for calling anthem air conditioning and plumbing are you an existing customer
+            no i am not an existing customer may i have your name and physical address please thank you for your
+            help goodbye"
+            Parsing:
+            Front desk: "hello thank you for calling anthem air conditioning and plumbing are you an existing customer"
+            Customer: "no i am not an existing customer"
+            Front desk: "may i have your name and physical address please"
+            Last statement: "may i have your name and physical address please"
+            Response: "False|My name is --made up name-- and my address is --made up address--"
+            
+            
             Transcript: "hello thank you for calling plumbing are you an existing customer yes i am an existing customer
             is this an emergency yes this is an emergency transferring you to an agent now goodbye"
             Parsing:
@@ -188,6 +206,9 @@ class LlmTemplate:
             For non terminal, it won't always be a single or binary response. For example it would be something like
             this if multiple options given:
                 "False|Yes, I'm a gold customer;Yes, I'm a silver customer;Yes, I'm a bronze customer"
+            
+            If there a 0 possible responses, then that means the node is terminal. So if you think the analysis is
+            "False|" then that means it's actually "True|"
             
             Provide your analysis in a single line using the exact format specified.
             """
