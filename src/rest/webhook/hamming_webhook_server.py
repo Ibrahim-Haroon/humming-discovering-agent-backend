@@ -34,6 +34,10 @@ def start_webhook_server():
     :return: None
     """
     threading.Thread(
-        target=lambda: app.run(host='127.0.0.1', port=8080, debug=False),
+        target=lambda: app.run(
+            host='127.0.0.1',
+            port=8080,
+            debug=False
+        ),
         daemon=True
     ).start()
