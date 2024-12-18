@@ -1,8 +1,13 @@
+import logging
+import threading
 from flask import Flask
 from flask_cors import CORS
+from src.util.logging_config import setup_logging
+from src.graph.conversation_graph import ConversationGraph
 from src.rest.api.graph_api import register_graph_routes
-from src.service.exploration_service import ExplorationService
 from src.llm.service.openai_llm_response_service import OpenAILlmResponseService
+from src.rest.api.hamming_voice_api_client import HammingVoiceApiClient
+from src.service.discovery_service import DiscoveryService
 from src.speech.service.deepgram_transcribe_service import DeepgramTranscribeService
 
 
@@ -24,20 +29,35 @@ class ApplicationServer:
 
     def run(self):
         """Start the Flask server"""
-        self.__app.run(host=self.__host, port=self.__port)
+        threading.Thread(
+            target=lambda: self.__app.run(
+                host=self.__host,
+                port=self.__port,
+                debug=False
+            ),
+            daemon=True
+        ).start()
 
 
 def main():
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    logger.info("Starting application...")
     server = ApplicationServer()
     server.run()
 
-    exploration_service = ExplorationService(
-        phone_number="+14153580761",  # AC company number
+    logger.info("Initializing discovery service...")
+    discovery_service = DiscoveryService(
         business_type="Air Conditioning and Plumbing company",
+        business_number="+14153580761",  # AC company number
         llm_service=OpenAILlmResponseService(),
-        transcribe_service=DeepgramTranscribeService()
+        transcription_service=DeepgramTranscribeService(),
+        hamming_api_client=HammingVoiceApiClient(),
+        conversation_graph=ConversationGraph(node_similarity_threshold=0.9),
+        max_depth=5
     )
-    exploration_service.run_exploration()
+
+    discovery_service.discover()
 
 
 if __name__ == "__main__":
