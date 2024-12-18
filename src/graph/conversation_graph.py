@@ -35,8 +35,12 @@ class ConversationGraph:
                 self.__nodes[node.id] = node
                 return
 
+            if node.is_terminal:
+                self.__nodes[node.id] = node
+                return node.id
+
             similar_node = self.__find_similar_node(
-                node.decision_point
+                node.decision_point,
             )
 
             if not similar_node:
