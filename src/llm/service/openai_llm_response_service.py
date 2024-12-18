@@ -6,7 +6,7 @@ from src.llm.service.llm_response_service import LlmResponseService
 
 
 class OpenAILlmResponseService(LlmResponseService):
-    def __init__(self, model: str = "gpt-3.5-turbo"):
+    def __init__(self, model: str = "gpt-4o-mini"):
         self.__model = model
         self.__url = "https://api.openai.com/v1/chat/completions"
         self.__api_key = Env()["OPENAI_API_KEY"]
@@ -51,7 +51,7 @@ class OpenAILlmResponseService(LlmResponseService):
                 url=self.__url,
                 headers=self.__headers,
                 json=payload,
-                timeout=5  # 5 second timeout
+                timeout=timeout
             )
         except requests.exceptions.Timeout:
             raise TimeoutError("OpenAI must be down or increase timeout duration")
