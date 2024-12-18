@@ -3,9 +3,6 @@ import requests
 from typing import Optional
 from datetime import datetime
 from queue import Queue, Empty
-
-from ngrok import set_auth_token
-
 from src.util.env import Env
 from src.rest.webhook.webhook_callback import WebhookCallback
 from src.rest.webhook.hamming_webhook_server import start_webhook_server
