@@ -5,7 +5,7 @@ from src.graph.conversation_graph import ConversationGraph
 def register_graph_routes(app):
     """Register all graph-related routes with the Flask application"""
 
-    @app.route('/api/conversation-graph', methods=['GET'])
+    @app.route('/v1/conversation-graph', methods=['GET'])
     def get_graph():
         """
         Get the current conversation graph as a JSON object
@@ -16,15 +16,17 @@ def register_graph_routes(app):
             'nodes': [
                 {
                     'id': node.id,
-                    'state': node.state.name,
-                    'prompt': node.metadata.get('prompt', ''),
+                    'is_initial': node.is_initial,
+                    'is_terminal': node.is_terminal,
+                    'decision_point': node.decision_point
                 }
                 for node in graph.nodes.values()
             ],
             'edges': [
                 {
                     'source': edge.source_node_id,
-                    'target': edge.target_node_id
+                    'target': edge.target_node_id,
+                    'message': edge.user_message
                 }
                 for edge in graph.edges
             ]
