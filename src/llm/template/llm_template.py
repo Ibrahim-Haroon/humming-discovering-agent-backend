@@ -29,10 +29,12 @@ class LlmTemplate:
         ).strip()
 
     @staticmethod
-    def generate_customer_prompt(business_type: str, response: str):
+    def response_customer_prompt(
+            business_type: str,
+            response: str,
+    ):
         return dedent(
             f"""
-            
             You are provided the following information:
             
             <business_type>
@@ -43,29 +45,41 @@ class LlmTemplate:
             {response}
             </response>
             
-            You must go based on the business type, the response you should respond with, and how previous calls went.
-            Construct the AI on how to answer the question which the call ended on previously. 
+            Your task is to generate instructions for an AI customer simulator.
             
-            One thing you will notice for the call transcription is that it's a mixture of the front-desk assistant and
-            the AI talking simultaneously, which you're instructing on how to respond. You must discern between them 
-            both to understand what's happening
+            CRITICAL: The instructions must contain EXACTLY:
+            1. Base context
+            2. ALL previous instructions (except end call parts)
+            3. ONE new instruction that uses the provided response
+            4. ONE end call instruction
             
-            For example:
-            previous call: hello thank you for calling turbo this is tom speaking are you an existing customer with us
-            end call thank you for calling turbo goodbye
+            RULES FOR NEW INSTRUCTION:
+            - Must use the response provided
+            - NO adding extra instructions
+            - NO predicting next responses
+             
+            Example:
+            Given response "Yes, I am an existing customer":
+            CORRECT: "You are a customer talking to a front-desk assistant for Air Conditioning and Plumbing company.
+            When asked if you are an existing customer, say Yes, I'm an existing customer. For any other questions, end
+            call"
+            WRONG: "...say Yes, I'm an existing customer. When asked about service needed..." (adds extra instruction)
             
-            question you need to answer: are you an existing customer?
+            If asked for personal information, just make up something simple.
             
-            good instructions: You are a customer talking to a front-desk assistant for a {business_type}. When asked
-            if you're an existing customer say yes, then just end the call after they ask the next question
-        
-            You *must* instruct with ending the call after the new question has been answered. Also just used the
-            format of `When asked {{X}}, respond with {{Y}} if it makes sense. Do not overcomplicate. 
+            Complete format should be sentences containing:
+            1. "You are a customer talking to a front-desk assistant for {business_type}"
+            2. [All previous When/Say instructions] (excluding end call)
+            3. "When asked [question], say [response provided]"
+            4. "For any other questions, end call"
+            
+            Return ONLY these parts. Do not add ANY additional instructions beyond what's in the previous instructions
+            plus ONE new instruction for the exact response provided. ONE end call in the entire response.
             """
         ).strip()
 
     @staticmethod
-    def generate_analysis_prompt(business_type: str, text: str):
+    def transcription_analysis_prompt(business_type: str, transcript: str):
         return dedent(
             f"""
             You are provided the following information:
@@ -74,44 +88,107 @@ class LlmTemplate:
             {business_type}
             </business_type>
             
-            <text>
-            {text}
-            </text>
+            <transcript>
+            {transcript}
+            </transcript>
             
-            You must go based on the business type, text which is a transcription of the call, and how previous calls
-            went. You need to analyze whether the call went to completion, for example when the front-desk assistant
-            hangs up the call. This can be because it transferred to a human, cannot help, or completed everything
-            alone.
+            Your task is to analyze transcripts from AI receptionist calls. These transcripts contain mixed dialogue
+            that must be carefully separated and analyzed.
             
-            One thing you will notice for the call transcription is that it's a mixture of the front-desk assistant and
-            the AI talking simultaneously, which you're instructing on how to respond. You must discern between them 
-            both to understand what's happening
+            CRITICAL: You must follow these exact steps:
             
-            If it's not terminal then you need to determine all possible responses, it can be binary or also non-binary.
-            Here are examples of both:
-                Non-binary:
-                    hello thank you for calling turbo this is tom speaking are you a gold, silver, or bronze customer 
-                    with us end call thank you for calling turbo goodbye
-                    
-                    Response: False|Yes, I'm a gold customer;Yes, I'm a silver customer;Yes, I'm a bronze customer
-                Binary:
-                    hello thank you for calling turbo this is tom speaking is this an emergency end call thank you for
-                    calling turbo goodbye
-                    
-                    Response: False|Yes, this is an emergency; No, this is not an emergency
+            1. SEPARATE THE SPEAKERS
+            - Front desk assistant statements:
+              * Always start with greetings/introductions
+              * Usually longer, formal language
+              * Example: "hello thank you for calling..."
             
-            Finally here is an example of terminal:
-            hello thank you for calling turbo this is tom speaking is this an emergency yes this is an emergency
-            transferring to human
+            - Customer statements:
+              * Usually short responses
+              * Example: "yes, I'm a customer", "no, this is not an emergency", etc.
+              * Often will say "hang up", "end call", etc. (this is a meta-instruction, not actual dialogue)
             
-            Response: True|
-                
-            You *must* always return your response in this format
-                Example for terminal is True:
-                True|
-                Example for terminal is False:
-                False|Yes, I'm an existing customer;No, I'm not an existing customer
-                
-            There are two splitters so you cannot use them anywhere else: | and ;
+            - Closing statements:
+              * Anything after "hang up", "goodbye", etc. is just closing
+              * Example: "the call has ended goodbye"
+              * Ignore these for analysis
+            
+            2. MAP QUESTION-ANSWER PAIRS
+            - Match front desk questions with customer answers.  
+            - Mark a question as COMPLETED once answered.  
+            - For repeated questions, only the last instance is active.
+            
+            3. FIND THE LAST ACTIVE QUESTION            
+            - Start from the end of the call (ignore "hang up").  
+            - Work backward to find the first unanswered question.  
+            - If all questions are answered, check for terminal states.  
+            
+            4. DETERMINE IF TERMINAL
+            Terminal states (return "True|"):
+            - Call transferred to human agent
+            - Appointment confirmed 
+            - Service completed
+            - No unanswered questions asked before call end
+            
+            Non-terminal states (return "False|response1;response2;etc"):
+            - Last statement is a question
+            - Question requires customer input
+            
+            5. GENERATE RESPONSE OPTIONS
+            For non-terminal states only:
+            - Must be natural customer speech
+            - Must directly answer the last question
+            - Must include ALL valid options
+            - NEVER include "hang up" or meta-instructions as responses
+            - Format with EXACT separators: | between terminal flag and responses, ; between responses
+            
+            Examples using proper parsing:
+            
+            Transcript: "hello thank you for calling plumbing this is john are you an existing customer hang up goodbye"
+            Parsing:
+            Front desk: "hello thank you for calling plumbing this is john are you an existing customer"
+            Last statement: "are you an existing customer"
+            Response: "False|Yes, I am an existing customer;No, I'm not an existing customer"
+            
+            Transcript: "hello thank you for calling anthem air conditioning and plumbing this is olivia speaking are
+            you an existing customer yes i'm an existing customer is this an emergency end call goodbye"
+            Parsing:
+            Front desk: "hello thank you for calling anthem air conditioning and plumbing this is olivia speaking are
+            you an existing customer"
+            Customer: "yes i'm an existing customer"
+            Front desk: "is this an emergency"
+            Last statement: "is this an emergency"
+            Response: "False|Yes, this is an emergency;No, this is not an emergency"
+            
+            Transcript: "hello thank you for calling anthem air conditioning and plumbing this is olivia speaking are
+            you an existing customer yes i am an existing customer is this an emergency no this is not an emergency what
+            kind of issue are you facing thank you for your assistance goodbye"
+            Parsing:
+            Front desk: "hello thank you for calling anthem air conditioning and plumbing this is olivia speaking are
+            you an existing customer"
+            Customer: "yes i'm an existing customer"
+            Front desk: "is this an emergency"
+            Customer: "no this is not an emergency"
+            Front desk: "what kind of issue are you facing"
+            Customer: "thank you for your assistance goodbye"
+            Last statement: "what kind of issue are you facing"
+            Response: "False|The issue I'm facing is that my hot water is not working"
+            
+            Transcript: "hello thank you for calling plumbing are you an existing customer yes i am an existing customer
+            is this an emergency yes this is an emergency transferring you to an agent now goodbye"
+            Parsing:
+            Front desk: "hello thank you for calling plumbing are you an existing customer"
+            Customer: "yes i am an existing customer"
+            Front desk: "is this an emergency"
+            Customer: "yes this is an emergency"
+            Front desk: "transferring you to an agent now goodbye"
+            Last statement: "transferring you to an agent now goodbye"
+            Response: "True|"
+
+            For non terminal, it won't always be a single or binary response. For example it would be something like
+            this if multiple options given:
+                "False|Yes, I'm a gold customer;Yes, I'm a silver customer;Yes, I'm a bronze customer"
+            
+            Provide your analysis in a single line using the exact format specified.
             """
         ).strip()
