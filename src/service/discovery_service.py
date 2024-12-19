@@ -43,6 +43,11 @@ class DiscoveryService:
         self.__max_depth = max_depth
 
     def discover(self):
+        """
+        Start the discovery process, only discovering the initial node and then calls the __explore_node method
+        that will recursively explore the conversation tree
+        :return: None
+        """
         self.logger.info("Starting discovery process...")
 
         initial_prompt = LlmTemplate.initial_customer_prompt(
