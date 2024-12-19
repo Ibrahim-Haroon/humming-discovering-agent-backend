@@ -19,21 +19,34 @@ class ConversationGraph:
         self.__lock = RLock()
 
     @property
-    def nodes(self):
+    def nodes(self) -> Dict[UUID, Node]:
+        """
+        Returns a copy of the nodes in the graph.
+        :return: [Dict[UUID, Node]]
+        """
         return self.__nodes.copy()
 
     @property
-    def edges(self):
+    def edges(self) -> Set[Edge]:
+        """
+        Returns a copy of the edges in the graph.
+        :return: [Set[Edge]]
+        """
         return self.__edges.copy()
 
-    def add_node(self, node: Node):
+    def add_node(self, node: Node) -> UUID:
+        """
+        Adds a node to the graph. If the node is similar to an existing node, the existing node is returned.
+        :param node: node to add
+        :return: UUID id of the node added or the similar node found
+        """
         with self.__lock:
             if not self.__root_id:
                 if not node.is_initial:
                     raise ValueError("Graph must have INITIAL state")
                 self.__root_id = node.id
                 self.__nodes[node.id] = node
-                return
+                return node.id
 
             if node.is_terminal:
                 self.__nodes[node.id] = node
@@ -50,6 +63,12 @@ class ConversationGraph:
             return similar_node.id
 
     def add_edge(self, edge: Edge):
+        """
+        Adds an edge to the graph. The source and target nodes must exist in the graph, otherwise an error is raised.
+        :param edge: edge to add
+        :return: None
+        :raises ValueError: if source or target node does not exist in the graph
+        """
         with self.__lock:
             if edge.source_node_id not in self.__nodes or edge.target_node_id not in self.__nodes:
                 raise ValueError("Edge nodes must exist in graph")
@@ -59,6 +78,9 @@ class ConversationGraph:
         """
         Builds the conversation history by walking up the graph from the given node to the root.
         Returns list of messages in chronological order (root to current node).
+
+        :param node_id: id of the node to start building the conversation history from
+        :return: [List[LlmMessage]] list of messages in chronological order
         """
         with self.__lock:
             messages: List[LlmMessage] = []
