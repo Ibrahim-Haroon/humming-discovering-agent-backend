@@ -21,6 +21,11 @@ class LlmTemplate:
     """
     @staticmethod
     def initial_customer_prompt(business_type: str):
+        """
+        This prompt is not sent to an LLM, it's just the initial system prompt sent to hamming start-call endpoint
+        :param business_type: the type of business
+        :return: contextualized prompt
+        """
         return dedent(
             f"""
             "You are a customer talking to a front-desk assistant for a {business_type}. When asked the first directed
@@ -33,6 +38,17 @@ class LlmTemplate:
             business_type: str,
             response: str,
     ):
+        """
+        This template is for generating the prompt that will be used to generate all subsequent system prompts to
+        hamming start-call endpoint
+
+        LLM will return something like this:
+        "You are a customer talking to a front-desk assistant for {business_type}. When asked if you are an existing
+        customer, say Yes, I'm an existing customer. For any other questions, end call."
+        :param business_type: the type of business
+        :param response: the new instruction it should add Ex. "Yes, I'm an existing customer"
+        :return: contextualized prompt
+        """
         return dedent(
             f"""
             You are provided the following information:
@@ -80,6 +96,20 @@ class LlmTemplate:
 
     @staticmethod
     def transcription_analysis_prompt(business_type: str, transcript: str):
+        """
+        This template is for generating the prompt that will be used to determine the next questions to ask unless
+        the conversation/call has ended, then it will return termination status.
+
+        Agent will return in this format:
+         is_terminal|response1;response2
+
+         Ex.
+            True|  (terminal status)
+            False|Yes, I'm an existing customer;No, I'm not an existing customer
+        :param business_type: the type of business
+        :param transcript: call recording transcription
+        :return: contextualized prompt
+        """
         return dedent(
             f"""
             You are provided the following information:
